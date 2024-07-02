@@ -2,6 +2,7 @@ package tensor
 
 import (
 	"errors"
+	"math"
 	"math/rand"
 	"time"
 )
@@ -10,12 +11,134 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-
 // Tensor struct with specific float32 type
 type TensorCPU struct {
 	Shape   []int
 	Strides []int
 	Data    []float32
+}
+
+// Transpose returns the transpose of a 2D tensor.
+func (t *TensorCPU) Transpose() (*TensorCPU, error) {
+	if len(t.Shape) != 2 {
+		return nil, errors.New("transpose is only defined for 2D tensors")
+	}
+	rows, cols := t.Shape[0], t.Shape[1]
+	data := make([]float32, len(t.Data))
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			data[j*rows+i] = t.Data[i*cols+j]
+		}
+	}
+	return &TensorCPU{
+		Shape:   []int{cols, rows},
+		Strides: calculateStrides([]int{cols, rows}),
+		Data:    data,
+	}, nil
+}
+
+// Determinant calculates the determinant of a 2D tensor.
+func (t *TensorCPU) Determinant() (float32, error) {
+	if len(t.Shape) != 2 || t.Shape[0] != t.Shape[1] {
+		return 0, errors.New("determinant is only defined for square 2D tensors")
+	}
+	return determinantRecursive(t.Data, t.Shape[0]), nil
+}
+
+func determinantRecursive(data []float32, n int) float32 {
+	if n == 1 {
+		return data[0]
+	}
+	if n == 2 {
+		return data[0]*data[3] - data[1]*data[2]
+	}
+	var det float32
+	sign := float32(1.0)
+	subMatrix := make([]float32, (n-1)*(n-1))
+	for i := 0; i < n; i++ {
+		getSubMatrix(data, subMatrix, n, 0, i)
+		det += sign * data[i] * determinantRecursive(subMatrix, n-1)
+		sign = -sign
+	}
+	return det
+}
+
+func getSubMatrix(data, subMatrix []float32, n, row, col int) {
+	subRow, subCol := 0, 0
+	for i := 0; i < n; i++ {
+		if i == row {
+			continue
+		}
+		subCol = 0
+		for j := 0; j < n; j++ {
+			if j == col {
+				continue
+			}
+			subMatrix[subRow*(n-1)+subCol] = data[i*n+j]
+			subCol++
+		}
+		subRow++
+	}
+}
+
+// Flatten returns a flattened 1D tensor.
+func (t *TensorCPU) Flatten() *TensorCPU {
+	return &TensorCPU{
+		Shape:   []int{len(t.Data)},
+		Strides: []int{1},
+		Data:    t.Data,
+	}
+}
+
+// Slice returns a sub-tensor based on the provided ranges.
+func (t *TensorCPU) Slice(ranges ...[2]int) (*TensorCPU, error) {
+	if len(ranges) != len(t.Shape) {
+		return nil, errors.New("number of ranges must match the number of dimensions")
+	}
+	newShape := make([]int, len(t.Shape))
+	for i, r := range ranges {
+		if r[0] < 0 || r[1] > t.Shape[i] || r[0] >= r[1] {
+			return nil, errors.New("invalid slice range")
+		}
+		newShape[i] = r[1] - r[0]
+	}
+
+	newData := make([]float32, calculateTotalElements(newShape))
+	copySlice(newData, t.Data, newShape, t.Strides, 0, ranges, t.Shape)
+	return &TensorCPU{
+		Shape:   newShape,
+		Strides: calculateStrides(newShape),
+		Data:    newData,
+	}, nil
+}
+
+func copySlice(dst, src []float32, shape, strides []int, offset int, ranges [][2]int, srcShape []int) {
+	if len(shape) == 1 {
+		srcStart := offset + ranges[0][0]*strides[0]
+		srcEnd := srcStart + shape[0]*strides[0]
+		dstIndex := 0
+		for i := srcStart; i < srcEnd; i += strides[0] {
+			dst[dstIndex] = src[i]
+			dstIndex++
+		}
+		return
+	}
+	for i := 0; i < shape[0]; i++ {
+		newOffset := offset + (ranges[0][0]+i)*strides[0]
+		copySlice(dst[i*shape[1]:], src, shape[1:], strides[1:], newOffset, ranges[1:], srcShape[1:])
+	}
+}
+
+// Helper function to calculate total elements in a shape
+func calculateTotalElements(shape []int) int {
+	total := 1
+	for _, dim := range shape {
+		if dim < 1 {
+			return 0 // this case handles any non-positive dimension size, effectively ensuring all dimensions are valid
+		}
+		total *= dim
+	}
+	return total
 }
 
 // CoreCPU struct implementing tensor operations
@@ -69,7 +192,7 @@ func (t *TensorCPU) GetShape() []int {
 }
 
 // NewTensorWithZeros creates a tensor filled with zeros.
-func NewTensorWithZeros(shape []int) *TensorCPU {
+func (c *CoreCPU) NewTensorWithZeros(shape []int) *TensorCPU {
 	total := calculateTotalElements(shape)
 	return &TensorCPU{
 		Shape:   shape,
@@ -79,7 +202,7 @@ func NewTensorWithZeros(shape []int) *TensorCPU {
 }
 
 // NewTensorWithOnes creates a tensor filled with ones.
-func NewTensorWithOnes(shape []int) *TensorCPU {
+func (c *CoreCPU) NewTensorWithOnes(shape []int) *TensorCPU {
 	total := calculateTotalElements(shape)
 	data := make([]float32, total)
 	for i := range data {
@@ -93,7 +216,7 @@ func NewTensorWithOnes(shape []int) *TensorCPU {
 }
 
 // NewTensorWithRand creates a tensor with uniformly distributed random values between 0 and 1.
-func NewTensorWithRand(shape []int) *TensorCPU {
+func (c *CoreCPU) NewTensorWithRand(shape []int) *TensorCPU {
 	total := calculateTotalElements(shape)
 	data := make([]float32, total)
 	for i := range data {
@@ -107,7 +230,7 @@ func NewTensorWithRand(shape []int) *TensorCPU {
 }
 
 // NewTensorWithRandn creates a tensor with normally distributed random values (mean = 0, stddev = 1).
-func NewTensorWithRandn(shape []int) *TensorCPU {
+func (c *CoreCPU) NewTensorWithRandn(shape []int) *TensorCPU {
 	total := calculateTotalElements(shape)
 	data := make([]float32, total)
 	for i := range data {
@@ -121,7 +244,7 @@ func NewTensorWithRandn(shape []int) *TensorCPU {
 }
 
 // NewTensorArange creates a tensor with values from start to end with a step increment.
-func NewTensorArange(start, end, step float32) *TensorCPU {
+func (c *CoreCPU) NewTensorArange(start, end, step float32) *TensorCPU {
 	var data []float32
 	for i := start; i < end; i += step {
 		data = append(data, i)
@@ -135,7 +258,7 @@ func NewTensorArange(start, end, step float32) *TensorCPU {
 }
 
 // NewTensorLinspace creates a tensor with linearly spaced elements between start and end, inclusive.
-func NewTensorLinspace(start, end float32, num int) *TensorCPU {
+func (c *CoreCPU) NewTensorLinspace(start, end float32, num int) *TensorCPU {
 	data := make([]float32, num)
 	if num == 1 {
 		data[0] = start
@@ -154,7 +277,7 @@ func NewTensorLinspace(start, end float32, num int) *TensorCPU {
 }
 
 // NewTensorEye creates an identity matrix of size n.
-func NewTensorEye(n int) *TensorCPU {
+func (c *CoreCPU) NewTensorEye(n int) *TensorCPU {
 	data := make([]float32, n*n)
 	stride := n + 1
 	for i := 0; i < len(data); i += stride {
@@ -168,56 +291,173 @@ func NewTensorEye(n int) *TensorCPU {
 	}
 }
 
-// calculateTotalElements calculates the total number of elements that a tensor with the given shape would hold.
-func calculateTotalElements(shape []int) int {
-	total := 1
-	for _, dim := range shape {
-		if dim < 1 {
-			return 0 // this case handles any non-positive dimension size, effectively ensuring all dimensions are valid
-		}
-		total *= dim
+func (c *CoreCPU) Add(a, b *TensorCPU) (*TensorCPU, error) {
+	if !equalShapes(a.Shape, b.Shape) {
+		return nil, errors.New("shapes do not match")
 	}
-	return total
+	data := make([]float32, len(a.Data))
+	for i := range data {
+		data[i] = a.Data[i] + b.Data[i]
+	}
+	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
 }
 
-// Implement the CoreCPU methods
-
-func (c *CoreCPU) Reshape(t *TensorCPU, newShape []int) error {
-	return t.Reshape(newShape)
+func (c *CoreCPU) Subtract(a, b *TensorCPU) (*TensorCPU, error) {
+	if !equalShapes(a.Shape, b.Shape) {
+		return nil, errors.New("shapes do not match")
+	}
+	data := make([]float32, len(a.Data))
+	for i := range data {
+		data[i] = a.Data[i] - b.Data[i]
+	}
+	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
 }
 
-func (c *CoreCPU) GetShape(t *TensorCPU) []int {
-	return t.GetShape()
+func (c *CoreCPU) Multiply(a, b *TensorCPU) (*TensorCPU, error) {
+	if !equalShapes(a.Shape, b.Shape) {
+		return nil, errors.New("shapes do not match")
+	}
+	data := make([]float32, len(a.Data))
+	for i := range data {
+		data[i] = a.Data[i] * b.Data[i]
+	}
+	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
 }
 
-func (c *CoreCPU) NewTensorWithZeros(shape []int) *TensorCPU {
-	return NewTensorWithZeros(shape)
+func (c *CoreCPU) Divide(a, b *TensorCPU) (*TensorCPU, error) {
+	if !equalShapes(a.Shape, b.Shape) {
+		return nil, errors.New("shapes do not match")
+	}
+	data := make([]float32, len(a.Data))
+	for i := range data {
+		data[i] = a.Data[i] / b.Data[i]
+	}
+	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
 }
 
-func (c *CoreCPU) NewTensorWithOnes(shape []int) *TensorCPU {
-	return NewTensorWithOnes(shape)
+// Matrix operations
+
+func (c *CoreCPU) Matmul(a, b *TensorCPU) (*TensorCPU, error) {
+	if len(a.Shape) != 2 || len(b.Shape) != 2 {
+		return nil, errors.New("matrices must be 2-dimensional")
+	}
+	if a.Shape[1] != b.Shape[0] {
+		return nil, errors.New("inner dimensions do not match")
+	}
+	m, n, p := a.Shape[0], a.Shape[1], b.Shape[1]
+	data := make([]float32, m*p)
+	for i := 0; i < m; i++ {
+		for j := 0; j < p; j++ {
+			sum := float32(0)
+			for k := 0; k < n; k++ {
+				sum += a.Data[i*n+k] * b.Data[k*p+j]
+			}
+			data[i*p+j] = sum
+		}
+	}
+	return &TensorCPU{Shape: []int{m, p}, Strides: calculateStrides([]int{m, p}), Data: data}, nil
 }
 
-func (c *CoreCPU) NewTensorWithConstant(shape []int, value float32) *TensorCPU {
-	return NewTensorWithConstant(shape, value)
+func (c *CoreCPU) Dot(a, b *TensorCPU) (float32, error) {
+	if len(a.Shape) != 1 || len(b.Shape) != 1 {
+		return 0, errors.New("vectors must be 1-dimensional")
+	}
+	if a.Shape[0] != b.Shape[0] {
+		return 0, errors.New("vector lengths do not match")
+	}
+	sum := float32(0)
+	for i := range a.Data {
+		sum += a.Data[i] * b.Data[i]
+	}
+	return sum, nil
 }
 
-func (c *CoreCPU) NewTensorWithRand(shape []int) *TensorCPU {
-	return NewTensorWithRand(shape)
+// Reduction operations
+
+func (c *CoreCPU) Sum(t *TensorCPU) float32 {
+	sum := float32(0)
+	for _, v := range t.Data {
+		sum += v
+	}
+	return sum
 }
 
-func (c *CoreCPU) NewTensorWithRandn(shape []int) *TensorCPU {
-	return NewTensorWithRandn(shape)
+func (c *CoreCPU) Mean(t *TensorCPU) float32 {
+	return c.Sum(t) / float32(len(t.Data))
 }
 
-func (c *CoreCPU) NewTensorArange(start, end, step float32) *TensorCPU {
-	return NewTensorArange(start, end, step)
+func (c *CoreCPU) Max(t *TensorCPU) float32 {
+	maxVal := t.Data[0]
+	for _, v := range t.Data {
+		if v > maxVal {
+			maxVal = v
+		}
+	}
+	return maxVal
 }
 
-func (c *CoreCPU) NewTensorLinspace(start, end float32, num int) *TensorCPU {
-	return NewTensorLinspace(start, end, num)
+func (c *CoreCPU) Min(t *TensorCPU) float32 {
+	minVal := t.Data[0]
+	for _, v := range t.Data {
+		if v < minVal {
+			minVal = v
+		}
+	}
+	return minVal
 }
 
-func (c *CoreCPU) NewTensorEye(n int) *TensorCPU {
-	return NewTensorEye(n)
+func (c *CoreCPU) Prod(t *TensorCPU) float32 {
+	prod := float32(1)
+	for _, v := range t.Data {
+		prod *= v
+	}
+	return prod
+}
+
+// Element-wise functions
+
+func (c *CoreCPU) Sqrt(t *TensorCPU) *TensorCPU {
+	data := make([]float32, len(t.Data))
+	for i, v := range t.Data {
+		data[i] = float32(math.Sqrt(float64(v)))
+	}
+	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+}
+
+func (c *CoreCPU) Log(t *TensorCPU) *TensorCPU {
+	data := make([]float32, len(t.Data))
+	for i, v := range t.Data {
+		data[i] = float32(math.Log(float64(v)))
+	}
+	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+}
+
+func (c *CoreCPU) Exp(t *TensorCPU) *TensorCPU {
+	data := make([]float32, len(t.Data))
+	for i, v := range t.Data {
+		data[i] = float32(math.Exp(float64(v)))
+	}
+	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+}
+
+func (c *CoreCPU) Pow(t *TensorCPU, power float32) *TensorCPU {
+	data := make([]float32, len(t.Data))
+	for i, v := range t.Data {
+		data[i] = float32(math.Pow(float64(v), float64(power)))
+	}
+	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+}
+
+// Helper functions
+
+func equalShapes(shape1, shape2 []int) bool {
+	if len(shape1) != len(shape2) {
+		return false
+	}
+	for i := range shape1 {
+		if shape1[i] != shape2[i] {
+			return false
+		}
+	}
+	return true
 }
