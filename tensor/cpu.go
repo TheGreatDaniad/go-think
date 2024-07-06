@@ -13,9 +13,12 @@ func init() {
 
 // Tensor struct with specific float32 type
 type TensorCPU struct {
-	Shape   []int
-	Strides []int
-	Data    []float32
+	Shape        []int
+	Strides      []int
+	Data         []float32
+	Grad         []float32 // Change type to float32 for consistency
+	RequiresGrad bool
+	GradFn       func(grad *TensorCPU)
 }
 
 // Transpose returns the transpose of a 2D tensor.
@@ -290,7 +293,6 @@ func (c *CoreCPU) NewTensorEye(n int) *TensorCPU {
 		Data:    data,
 	}
 }
-
 func (c *CoreCPU) Add(a, b *TensorCPU) (*TensorCPU, error) {
 	if !equalShapes(a.Shape, b.Shape) {
 		return nil, errors.New("shapes do not match")
@@ -299,7 +301,23 @@ func (c *CoreCPU) Add(a, b *TensorCPU) (*TensorCPU, error) {
 	for i := range data {
 		data[i] = a.Data[i] + b.Data[i]
 	}
-	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
+	result := &TensorCPU{
+		Shape:        a.Shape,
+		Strides:      a.Strides,
+		Data:         data,
+		RequiresGrad: a.RequiresGrad || b.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if a.RequiresGrad {
+				a.Backward(grad)
+			}
+			if b.RequiresGrad {
+				b.Backward(grad)
+			}
+		}
+	}
+	return result, nil
 }
 
 func (c *CoreCPU) Subtract(a, b *TensorCPU) (*TensorCPU, error) {
@@ -310,7 +328,31 @@ func (c *CoreCPU) Subtract(a, b *TensorCPU) (*TensorCPU, error) {
 	for i := range data {
 		data[i] = a.Data[i] - b.Data[i]
 	}
-	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
+	result := &TensorCPU{
+		Shape:        a.Shape,
+		Strides:      a.Strides,
+		Data:         data,
+		RequiresGrad: a.RequiresGrad || b.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if a.RequiresGrad {
+				a.Backward(grad)
+			}
+			if b.RequiresGrad {
+				negGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					negGrad.Data[i] = -grad.Data[i]
+				}
+				b.Backward(negGrad)
+			}
+		}
+	}
+	return result, nil
 }
 
 func (c *CoreCPU) Multiply(a, b *TensorCPU) (*TensorCPU, error) {
@@ -321,7 +363,39 @@ func (c *CoreCPU) Multiply(a, b *TensorCPU) (*TensorCPU, error) {
 	for i := range data {
 		data[i] = a.Data[i] * b.Data[i]
 	}
-	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
+	result := &TensorCPU{
+		Shape:        a.Shape,
+		Strides:      a.Strides,
+		Data:         data,
+		RequiresGrad: a.RequiresGrad || b.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if a.RequiresGrad {
+				aGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					aGrad.Data[i] = grad.Data[i] * b.Data[i]
+				}
+				a.Backward(aGrad)
+			}
+			if b.RequiresGrad {
+				bGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					bGrad.Data[i] = grad.Data[i] * a.Data[i]
+				}
+				b.Backward(bGrad)
+			}
+		}
+	}
+	return result, nil
 }
 
 func (c *CoreCPU) Divide(a, b *TensorCPU) (*TensorCPU, error) {
@@ -332,7 +406,50 @@ func (c *CoreCPU) Divide(a, b *TensorCPU) (*TensorCPU, error) {
 	for i := range data {
 		data[i] = a.Data[i] / b.Data[i]
 	}
-	return &TensorCPU{Shape: a.Shape, Strides: a.Strides, Data: data}, nil
+	result := &TensorCPU{
+		Shape:        a.Shape,
+		Strides:      a.Strides,
+		Data:         data,
+		RequiresGrad: a.RequiresGrad || b.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if a.RequiresGrad {
+				aGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					aGrad.Data[i] = grad.Data[i] / b.Data[i]
+				}
+				a.Backward(aGrad)
+			}
+			if b.RequiresGrad {
+				bGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					bGrad.Data[i] = -grad.Data[i] * a.Data[i] / (b.Data[i] * b.Data[i])
+				}
+				b.Backward(bGrad)
+			}
+		}
+	}
+	return result, nil
+}
+func (t *TensorCPU) Backward(grad *TensorCPU) {
+	if t.Grad == nil {
+		t.Grad = make([]float32, len(t.Data))
+	}
+	for i := range t.Grad {
+		t.Grad[i] += grad.Data[i]
+	}
+	if t.GradFn != nil {
+		t.GradFn(grad)
+	}
 }
 
 // Matrix operations
@@ -355,7 +472,47 @@ func (c *CoreCPU) Matmul(a, b *TensorCPU) (*TensorCPU, error) {
 			data[i*p+j] = sum
 		}
 	}
-	return &TensorCPU{Shape: []int{m, p}, Strides: calculateStrides([]int{m, p}), Data: data}, nil
+	result := &TensorCPU{
+		Shape:        []int{m, p},
+		Strides:      calculateStrides([]int{m, p}),
+		Data:         data,
+		RequiresGrad: a.RequiresGrad || b.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if a.RequiresGrad {
+				aGrad := &TensorCPU{
+					Shape:   a.Shape,
+					Strides: a.Strides,
+					Data:    make([]float32, len(a.Data)),
+				}
+				for i := 0; i < m; i++ {
+					for k := 0; k < n; k++ {
+						for j := 0; j < p; j++ {
+							aGrad.Data[i*n+k] += grad.Data[i*p+j] * b.Data[k*p+j]
+						}
+					}
+				}
+				a.Backward(aGrad)
+			}
+			if b.RequiresGrad {
+				bGrad := &TensorCPU{
+					Shape:   b.Shape,
+					Strides: b.Strides,
+					Data:    make([]float32, len(b.Data)),
+				}
+				for k := 0; k < n; k++ {
+					for j := 0; j < p; j++ {
+						for i := 0; i < m; i++ {
+							bGrad.Data[k*p+j] += grad.Data[i*p+j] * a.Data[i*n+k]
+						}
+					}
+				}
+				b.Backward(bGrad)
+			}
+		}
+	}
+	return result, nil
 }
 
 func (c *CoreCPU) Dot(a, b *TensorCPU) (float32, error) {
@@ -415,13 +572,33 @@ func (c *CoreCPU) Prod(t *TensorCPU) float32 {
 }
 
 // Element-wise functions
-
 func (c *CoreCPU) Sqrt(t *TensorCPU) *TensorCPU {
 	data := make([]float32, len(t.Data))
 	for i, v := range t.Data {
 		data[i] = float32(math.Sqrt(float64(v)))
 	}
-	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+	result := &TensorCPU{
+		Shape:        t.Shape,
+		Strides:      t.Strides,
+		Data:         data,
+		RequiresGrad: t.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if t.RequiresGrad {
+				tGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					tGrad.Data[i] = grad.Data[i] / (2 * data[i])
+				}
+				t.Backward(tGrad)
+			}
+		}
+	}
+	return result
 }
 
 func (c *CoreCPU) Log(t *TensorCPU) *TensorCPU {
@@ -429,7 +606,28 @@ func (c *CoreCPU) Log(t *TensorCPU) *TensorCPU {
 	for i, v := range t.Data {
 		data[i] = float32(math.Log(float64(v)))
 	}
-	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+	result := &TensorCPU{
+		Shape:        t.Shape,
+		Strides:      t.Strides,
+		Data:         data,
+		RequiresGrad: t.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if t.RequiresGrad {
+				tGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					tGrad.Data[i] = grad.Data[i] / t.Data[i]
+				}
+				t.Backward(tGrad)
+			}
+		}
+	}
+	return result
 }
 
 func (c *CoreCPU) Exp(t *TensorCPU) *TensorCPU {
@@ -437,7 +635,28 @@ func (c *CoreCPU) Exp(t *TensorCPU) *TensorCPU {
 	for i, v := range t.Data {
 		data[i] = float32(math.Exp(float64(v)))
 	}
-	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+	result := &TensorCPU{
+		Shape:        t.Shape,
+		Strides:      t.Strides,
+		Data:         data,
+		RequiresGrad: t.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if t.RequiresGrad {
+				tGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					tGrad.Data[i] = grad.Data[i] * data[i]
+				}
+				t.Backward(tGrad)
+			}
+		}
+	}
+	return result
 }
 
 func (c *CoreCPU) Pow(t *TensorCPU, power float32) *TensorCPU {
@@ -445,7 +664,28 @@ func (c *CoreCPU) Pow(t *TensorCPU, power float32) *TensorCPU {
 	for i, v := range t.Data {
 		data[i] = float32(math.Pow(float64(v), float64(power)))
 	}
-	return &TensorCPU{Shape: t.Shape, Strides: t.Strides, Data: data}
+	result := &TensorCPU{
+		Shape:        t.Shape,
+		Strides:      t.Strides,
+		Data:         data,
+		RequiresGrad: t.RequiresGrad,
+	}
+	if result.RequiresGrad {
+		result.GradFn = func(grad *TensorCPU) {
+			if t.RequiresGrad {
+				tGrad := &TensorCPU{
+					Shape:   grad.Shape,
+					Strides: grad.Strides,
+					Data:    make([]float32, len(grad.Data)),
+				}
+				for i := range grad.Data {
+					tGrad.Data[i] = grad.Data[i] * power * float32(math.Pow(float64(t.Data[i]), float64(power-1)))
+				}
+				t.Backward(tGrad)
+			}
+		}
+	}
+	return result
 }
 
 // Helper functions
