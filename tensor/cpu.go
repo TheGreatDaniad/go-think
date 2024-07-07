@@ -293,7 +293,7 @@ func (c *CoreCPU) NewTensorEye(n int) *TensorCPU {
 		Data:    data,
 	}
 }
-func (c *CoreCPU) Add(a, b *TensorCPU) (*TensorCPU, error) {
+func AddCPU(a, b *TensorCPU) (*TensorCPU, error) {
 	if !equalShapes(a.Shape, b.Shape) {
 		return nil, errors.New("shapes do not match")
 	}
@@ -320,7 +320,7 @@ func (c *CoreCPU) Add(a, b *TensorCPU) (*TensorCPU, error) {
 	return result, nil
 }
 
-func (c *CoreCPU) Subtract(a, b *TensorCPU) (*TensorCPU, error) {
+func SubtractCPU(a, b *TensorCPU) (*TensorCPU, error) {
 	if !equalShapes(a.Shape, b.Shape) {
 		return nil, errors.New("shapes do not match")
 	}
@@ -355,7 +355,7 @@ func (c *CoreCPU) Subtract(a, b *TensorCPU) (*TensorCPU, error) {
 	return result, nil
 }
 
-func (c *CoreCPU) Multiply(a, b *TensorCPU) (*TensorCPU, error) {
+func MultiplyCPU(a, b *TensorCPU) (*TensorCPU, error) {
 	if !equalShapes(a.Shape, b.Shape) {
 		return nil, errors.New("shapes do not match")
 	}
@@ -398,7 +398,7 @@ func (c *CoreCPU) Multiply(a, b *TensorCPU) (*TensorCPU, error) {
 	return result, nil
 }
 
-func (c *CoreCPU) Divide(a, b *TensorCPU) (*TensorCPU, error) {
+func DivideCPU(a, b *TensorCPU) (*TensorCPU, error) {
 	if !equalShapes(a.Shape, b.Shape) {
 		return nil, errors.New("shapes do not match")
 	}
@@ -454,7 +454,7 @@ func (t *TensorCPU) Backward(grad *TensorCPU) {
 
 // Matrix operations
 
-func (c *CoreCPU) Matmul(a, b *TensorCPU) (*TensorCPU, error) {
+func MatmulCPU(a, b *TensorCPU) (*TensorCPU, error) {
 	if len(a.Shape) != 2 || len(b.Shape) != 2 {
 		return nil, errors.New("matrices must be 2-dimensional")
 	}
@@ -515,7 +515,7 @@ func (c *CoreCPU) Matmul(a, b *TensorCPU) (*TensorCPU, error) {
 	return result, nil
 }
 
-func (c *CoreCPU) Dot(a, b *TensorCPU) (float32, error) {
+func DotCPU(a, b *TensorCPU) (float32, error) {
 	if len(a.Shape) != 1 || len(b.Shape) != 1 {
 		return 0, errors.New("vectors must be 1-dimensional")
 	}
@@ -531,7 +531,7 @@ func (c *CoreCPU) Dot(a, b *TensorCPU) (float32, error) {
 
 // Reduction operations
 
-func (c *CoreCPU) Sum(t *TensorCPU) float32 {
+func SumCPU(t *TensorCPU) float32 {
 	sum := float32(0)
 	for _, v := range t.Data {
 		sum += v
@@ -539,11 +539,11 @@ func (c *CoreCPU) Sum(t *TensorCPU) float32 {
 	return sum
 }
 
-func (c *CoreCPU) Mean(t *TensorCPU) float32 {
-	return c.Sum(t) / float32(len(t.Data))
+func MeanCPU(t *TensorCPU) float32 {
+	return SumCPU(t) / float32(len(t.Data))
 }
 
-func (c *CoreCPU) Max(t *TensorCPU) float32 {
+func MaxCPU(t *TensorCPU) float32 {
 	maxVal := t.Data[0]
 	for _, v := range t.Data {
 		if v > maxVal {
@@ -553,7 +553,7 @@ func (c *CoreCPU) Max(t *TensorCPU) float32 {
 	return maxVal
 }
 
-func (c *CoreCPU) Min(t *TensorCPU) float32 {
+func MinCPU(t *TensorCPU) float32 {
 	minVal := t.Data[0]
 	for _, v := range t.Data {
 		if v < minVal {
@@ -563,7 +563,7 @@ func (c *CoreCPU) Min(t *TensorCPU) float32 {
 	return minVal
 }
 
-func (c *CoreCPU) Prod(t *TensorCPU) float32 {
+func ProdCPU(t *TensorCPU) float32 {
 	prod := float32(1)
 	for _, v := range t.Data {
 		prod *= v
@@ -572,7 +572,7 @@ func (c *CoreCPU) Prod(t *TensorCPU) float32 {
 }
 
 // Element-wise functions
-func (c *CoreCPU) Sqrt(t *TensorCPU) *TensorCPU {
+func SqrtCPU(t *TensorCPU) *TensorCPU {
 	data := make([]float32, len(t.Data))
 	for i, v := range t.Data {
 		data[i] = float32(math.Sqrt(float64(v)))
@@ -601,7 +601,7 @@ func (c *CoreCPU) Sqrt(t *TensorCPU) *TensorCPU {
 	return result
 }
 
-func (c *CoreCPU) Log(t *TensorCPU) *TensorCPU {
+func LogCPU(t *TensorCPU) *TensorCPU {
 	data := make([]float32, len(t.Data))
 	for i, v := range t.Data {
 		data[i] = float32(math.Log(float64(v)))
@@ -630,7 +630,7 @@ func (c *CoreCPU) Log(t *TensorCPU) *TensorCPU {
 	return result
 }
 
-func (c *CoreCPU) Exp(t *TensorCPU) *TensorCPU {
+func ExpCPU(t *TensorCPU) *TensorCPU {
 	data := make([]float32, len(t.Data))
 	for i, v := range t.Data {
 		data[i] = float32(math.Exp(float64(v)))
@@ -659,7 +659,7 @@ func (c *CoreCPU) Exp(t *TensorCPU) *TensorCPU {
 	return result
 }
 
-func (c *CoreCPU) Pow(t *TensorCPU, power float32) *TensorCPU {
+func PowCPU(t *TensorCPU, power float32) *TensorCPU {
 	data := make([]float32, len(t.Data))
 	for i, v := range t.Data {
 		data[i] = float32(math.Pow(float64(v), float64(power)))
@@ -689,7 +689,6 @@ func (c *CoreCPU) Pow(t *TensorCPU, power float32) *TensorCPU {
 }
 
 // Helper functions
-
 func equalShapes(shape1, shape2 []int) bool {
 	if len(shape1) != len(shape2) {
 		return false

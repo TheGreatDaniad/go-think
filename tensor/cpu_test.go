@@ -545,7 +545,6 @@ func TestNewTensorEye(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Adding two 2x2 tensors
 	a := &TensorCPU{
@@ -560,7 +559,7 @@ func TestAdd(t *testing.T) {
 	}
 	expectedData := []float32{6, 8, 10, 12}
 
-	result, err := core.Add(a, b)
+	result, err := AddCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during addition: %v", err)
 	}
@@ -586,7 +585,7 @@ func TestAdd(t *testing.T) {
 	}
 	expectedData = []float32{10, 10, 10, 10, 10, 10, 10, 10, 10}
 
-	result, err = core.Add(a, b)
+	result, err = AddCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during addition: %v", err)
 	}
@@ -601,7 +600,6 @@ func TestAdd(t *testing.T) {
 }
 
 func TestSubtract(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Subtracting two 2x2 tensors
 	a := &TensorCPU{
@@ -616,7 +614,7 @@ func TestSubtract(t *testing.T) {
 	}
 	expectedData := []float32{4, 4, 4, 4}
 
-	result, err := core.Subtract(a, b)
+	result, err := SubtractCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during subtraction: %v", err)
 	}
@@ -642,7 +640,7 @@ func TestSubtract(t *testing.T) {
 	}
 	expectedData = []float32{8, 6, 4, 2, 0, -2, -4, -6, -8}
 
-	result, err = core.Subtract(a, b)
+	result, err = SubtractCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during subtraction: %v", err)
 	}
@@ -657,7 +655,6 @@ func TestSubtract(t *testing.T) {
 }
 
 func TestMultiply(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Multiplying two 2x2 tensors
 	a := &TensorCPU{
@@ -672,7 +669,7 @@ func TestMultiply(t *testing.T) {
 	}
 	expectedData := []float32{5, 12, 21, 32}
 
-	result, err := core.Multiply(a, b)
+	result, err := MultiplyCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during multiplication: %v", err)
 	}
@@ -698,7 +695,7 @@ func TestMultiply(t *testing.T) {
 	}
 	expectedData = []float32{9, 16, 21, 24, 25, 24, 21, 16, 9}
 
-	result, err = core.Multiply(a, b)
+	result, err = MultiplyCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during multiplication: %v", err)
 	}
@@ -713,8 +710,6 @@ func TestMultiply(t *testing.T) {
 }
 
 func TestDivide(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Dividing two 2x2 tensors
 	a := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -728,7 +723,7 @@ func TestDivide(t *testing.T) {
 	}
 	expectedData := []float32{3, 2, 2, 4}
 
-	result, err := core.Divide(a, b)
+	result, err := DivideCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during division: %v", err)
 	}
@@ -754,7 +749,7 @@ func TestDivide(t *testing.T) {
 	}
 	expectedData = []float32{9, 4, 7, 3, 5, 2, 3, 1, 1}
 
-	result, err = core.Divide(a, b)
+	result, err = DivideCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during division: %v", err)
 	}
@@ -769,8 +764,6 @@ func TestDivide(t *testing.T) {
 }
 
 func TestMatmul(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Multiplying two 2x2 matrices
 	a := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -784,7 +777,7 @@ func TestMatmul(t *testing.T) {
 	}
 	expectedData := []float32{19, 22, 43, 50}
 
-	result, err := core.Matmul(a, b)
+	result, err := MatmulCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during matrix multiplication: %v", err)
 	}
@@ -811,7 +804,7 @@ func TestMatmul(t *testing.T) {
 	}
 	expectedData = []float32{58, 64, 139, 154}
 
-	result, err = core.Matmul(a, b)
+	result, err = MatmulCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during matrix multiplication: %v", err)
 	}
@@ -827,8 +820,6 @@ func TestMatmul(t *testing.T) {
 }
 
 func TestDot(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Dot product of two vectors
 	a := &TensorCPU{
 		Shape:   []int{3},
@@ -842,7 +833,7 @@ func TestDot(t *testing.T) {
 	}
 	expectedDot := float32(32)
 
-	result, err := core.Dot(a, b)
+	result, err := DotCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during dot product: %v", err)
 	}
@@ -863,7 +854,7 @@ func TestDot(t *testing.T) {
 	}
 	expectedDot = float32(70)
 
-	result, err = core.Dot(a, b)
+	result, err = DotCPU(a, b)
 	if err != nil {
 		t.Errorf("Error during dot product: %v", err)
 	}
@@ -873,8 +864,6 @@ func TestDot(t *testing.T) {
 }
 
 func TestSum(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Sum of a 2x2 tensor
 	tensor := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -883,7 +872,7 @@ func TestSum(t *testing.T) {
 	}
 	expectedSum := float32(10)
 
-	result := core.Sum(tensor)
+	result := SumCPU(tensor)
 	if result != expectedSum {
 		t.Errorf("Expected sum %v, got %v", expectedSum, result)
 	}
@@ -896,15 +885,13 @@ func TestSum(t *testing.T) {
 	}
 	expectedSum = float32(45)
 
-	result = core.Sum(tensor)
+	result = SumCPU(tensor)
 	if result != expectedSum {
 		t.Errorf("Expected sum %v, got %v", expectedSum, result)
 	}
 }
 
 func TestMax(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Max of a 2x2 tensor
 	tensor := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -913,7 +900,7 @@ func TestMax(t *testing.T) {
 	}
 	expectedMax := float32(4)
 
-	result := core.Max(tensor)
+	result := MaxCPU(tensor)
 	if result != expectedMax {
 		t.Errorf("Expected max %v, got %v", expectedMax, result)
 	}
@@ -926,15 +913,13 @@ func TestMax(t *testing.T) {
 	}
 	expectedMax = float32(9)
 
-	result = core.Max(tensor)
+	result = MaxCPU(tensor)
 	if result != expectedMax {
 		t.Errorf("Expected max %v, got %v", expectedMax, result)
 	}
 }
 
 func TestMin(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Min of a 2x2 tensor
 	tensor := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -943,7 +928,7 @@ func TestMin(t *testing.T) {
 	}
 	expectedMin := float32(1)
 
-	result := core.Min(tensor)
+	result := MinCPU(tensor)
 	if result != expectedMin {
 		t.Errorf("Expected min %v, got %v", expectedMin, result)
 	}
@@ -956,14 +941,13 @@ func TestMin(t *testing.T) {
 	}
 	expectedMin = float32(1)
 
-	result = core.Min(tensor)
+	result = MinCPU(tensor)
 	if result != expectedMin {
 		t.Errorf("Expected min %v, got %v", expectedMin, result)
 	}
 }
 
 func TestProd(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Product of a 2x2 tensor
 	tensor := &TensorCPU{
@@ -973,7 +957,7 @@ func TestProd(t *testing.T) {
 	}
 	expectedProd := float32(24)
 
-	result := core.Prod(tensor)
+	result := ProdCPU(tensor)
 	if result != expectedProd {
 		t.Errorf("Expected product %v, got %v", expectedProd, result)
 	}
@@ -986,14 +970,13 @@ func TestProd(t *testing.T) {
 	}
 	expectedProd = float32(362880)
 
-	result = core.Prod(tensor)
+	result = ProdCPU(tensor)
 	if result != expectedProd {
 		t.Errorf("Expected product %v, got %v", expectedProd, result)
 	}
 }
 
 func TestSqrt(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Square root of a 2x2 tensor
 	tensor := &TensorCPU{
@@ -1003,7 +986,7 @@ func TestSqrt(t *testing.T) {
 	}
 	expectedData := []float32{1, 2, 3, 4}
 
-	result := core.Sqrt(tensor)
+	result := SqrtCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1021,7 +1004,7 @@ func TestSqrt(t *testing.T) {
 	}
 	expectedData = []float32{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
-	result = core.Sqrt(tensor)
+	result = SqrtCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1033,7 +1016,6 @@ func TestSqrt(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Logarithm of a 2x2 tensor
 	tensor := &TensorCPU{
@@ -1043,7 +1025,7 @@ func TestLog(t *testing.T) {
 	}
 	expectedData := []float32{0, 0.6931472, 1.0986123, 1.3862944}
 
-	result := core.Log(tensor)
+	result := LogCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1065,7 +1047,7 @@ func TestLog(t *testing.T) {
 		1.9459101, 2.0794415, 2.1972246,
 	}
 
-	result = core.Log(tensor)
+	result = LogCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1077,8 +1059,6 @@ func TestLog(t *testing.T) {
 }
 
 func TestExp(t *testing.T) {
-	core := &CoreCPU{}
-
 	// Test case 1: Exponential of a 2x2 tensor
 	tensor := &TensorCPU{
 		Shape:   []int{2, 2},
@@ -1087,7 +1067,7 @@ func TestExp(t *testing.T) {
 	}
 	expectedData := []float32{1, 2.7182817, 7.389056, 20.085537}
 
-	result := core.Exp(tensor)
+	result := ExpCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1109,7 +1089,7 @@ func TestExp(t *testing.T) {
 		403.4288, 1096.6332, 2980.958,
 	}
 
-	result = core.Exp(tensor)
+	result = ExpCPU(tensor)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1121,7 +1101,6 @@ func TestExp(t *testing.T) {
 }
 
 func TestPow(t *testing.T) {
-	core := &CoreCPU{}
 
 	// Test case 1: Power of 2 of a 2x2 tensor
 	tensor := &TensorCPU{
@@ -1132,7 +1111,7 @@ func TestPow(t *testing.T) {
 	power := float32(2)
 	expectedData := []float32{1, 4, 9, 16}
 
-	result := core.Pow(tensor, power)
+	result := PowCPU(tensor, power)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
@@ -1151,7 +1130,7 @@ func TestPow(t *testing.T) {
 	power = float32(3)
 	expectedData = []float32{1, 8, 27, 64, 125, 216, 343, 512, 729}
 
-	result = core.Pow(tensor, power)
+	result = PowCPU(tensor, power)
 	if !equalShapes(result.Shape, tensor.Shape) {
 		t.Errorf("Expected shape %v, got %v", tensor.Shape, result.Shape)
 	}
